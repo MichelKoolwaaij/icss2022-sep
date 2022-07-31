@@ -3,11 +3,13 @@ package nl.han.ica.icss.checker;
 import nl.han.ica.datastructures.HANLinkedList;
 import nl.han.ica.datastructures.IHANLinkedList;
 import nl.han.ica.icss.ast.*;
+import nl.han.ica.icss.ast.literals.ScalarLiteral;
+import nl.han.ica.icss.ast.operations.AddOperation;
+import nl.han.ica.icss.ast.operations.MultiplyOperation;
 import nl.han.ica.icss.ast.types.ExpressionType;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-
 
 
 public class Checker {
@@ -15,9 +17,7 @@ public class Checker {
     private IHANLinkedList<HashMap<String, ExpressionType>> variableTypes;
 
     public void check(AST ast) {
-        variableTypes = new HANLinkedList<>();
-        //var bodyVariables = getBodyVariables(ast.root);
-
+        //variableTypes = new HANLinkedList<>();
         check(ast.root.body, new ArrayList<>());
     }
 
@@ -55,6 +55,38 @@ public class Checker {
         if (node instanceof VariableReference){
             if(variables.stream().noneMatch(variableAssignment -> variableAssignment.name.equals(node))){
                 node.setError("Variable " + ((VariableReference) node).name + " is not initialised");
+            }
+        }
+        if (node instanceof Operation){
+            if(node instanceof AddOperation){
+                if(((AddOperation) node).lhs instanceof VariableReference){
+                    //check if variable type is equal to rhs type
+                    if(variables.stream()
+                            .anyMatch(variableAssignment ->
+                                    ((VariableReference) ((AddOperation) node).lhs).name.equals(variableAssignment.name.name)
+                            && !((AddOperation) node).rhs.getClass().equals(variableAssignment.expression.getClass()))){
+                        node.setError("Operation is not permitted");
+                    }
+                }
+                else if(!((AddOperation) node).rhs.getClass().equals(((AddOperation) node).lhs.getClass())){
+                    node.setError("Operation is not permitted");
+                }
+            }
+            if(node instanceof MultiplyOperation){
+                if(((MultiplyOperation) node).lhs instanceof VariableReference){
+                    //check if variable type is not a scalar
+                    if(variables.stream()
+                            .anyMatch(variableAssignment ->
+                                    ((VariableReference) ((MultiplyOperation) node).lhs).name.equals(variableAssignment.name.name)
+                                            && !(variableAssignment.expression instanceof ScalarLiteral))){
+                        if(!(((MultiplyOperation) node).rhs instanceof ScalarLiteral)){
+                            node.setError("Product need at least one scalar value");
+                        }
+                    }
+                }
+                else if(!((((MultiplyOperation) node).lhs instanceof ScalarLiteral) | ((MultiplyOperation) node).rhs instanceof ScalarLiteral)){
+                    node.setError("Products need at least one scalar value");
+                }
             }
         }
     }
