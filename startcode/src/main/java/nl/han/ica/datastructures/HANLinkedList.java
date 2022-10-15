@@ -1,5 +1,7 @@
 package nl.han.ica.datastructures;
 
+import java.util.Iterator;
+
 public class HANLinkedList<T> implements IHANLinkedList<T>{
     private ListNode<T> header;
     private int length = 0;
@@ -17,7 +19,12 @@ public class HANLinkedList<T> implements IHANLinkedList<T>{
     public void addFirst(T value) {
         ListNode<T> tmp = new ListNode<>();
         tmp.element = value;
-        header.next = tmp;
+        if (length != 0) {
+            var next = header.next;
+            header.next = tmp;
+            header.next.next = next;
+        }
+        else header.next = tmp;
         length++;
     }
 
@@ -47,7 +54,7 @@ public class HANLinkedList<T> implements IHANLinkedList<T>{
                 currentNode = currentNode.next;
             }
             ListNode<T> tmp = new ListNode<>();
-            tmp.element = (T) value;
+            tmp.element = value;
             tmp.next = currentNode.next;
             currentNode.next = tmp;
             length++;
@@ -81,7 +88,7 @@ public class HANLinkedList<T> implements IHANLinkedList<T>{
      */
     @Override
     public T get(int pos) {
-        if(pos<=length){
+        if(pos<length){
             ListNode<T> current = header;
             for (int i = 0; i < pos; i++) {
                 current = current.next;
@@ -118,5 +125,25 @@ public class HANLinkedList<T> implements IHANLinkedList<T>{
     @Override
     public int getSize() {
         return length;
+    }
+
+    /**
+     * Returns an iterator over elements of type {@code T}.
+     *
+     * @return an Iterator.
+     */
+    @Override
+    public Iterator iterator() {
+        return new Iterator() {
+            @Override
+            public boolean hasNext() {
+                return header.next != null;
+            }
+
+            @Override
+            public Object next() {
+                return header.next.element;
+            }
+        };
     }
 }
