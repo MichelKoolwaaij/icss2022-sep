@@ -59,5 +59,16 @@ class HANLinkedListTest {
 
     @Test
     void iterator() {
+        //arrange
+        IHANLinkedList<HashMap<String, ExpressionType>> test = new HANLinkedList<>();
+        var first = new HashMap<String, ExpressionType>();
+        first.put("UseLinkColor", ExpressionType.BOOL);
+        test.addFirst(first);
+        //assert
+        System.out.println(test.getSize());
+        test.iterator().next();
+        System.out.println(test.getSize());
+        assertFalse(test.iterator().hasNext());
+        System.out.println(test.getSize());
     }
 }
