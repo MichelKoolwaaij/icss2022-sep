@@ -20,55 +20,57 @@ public class Checker {
     public void check(AST ast) {
         variableTypes = new HANLinkedList<>();
         variableTypes.addFirst(new HashMap<>());
-        int scope = 0;
-        check(ast.root.body, variableTypes, scope);
+        //int scope = 0;
+        check(ast.root.body);
     }
 
-    private void check(ArrayList<ASTNode> nodes, IHANLinkedList<HashMap<String, ExpressionType>> variableTypes, int scope) {
+    private void check(ArrayList<ASTNode> nodes) {
         for(ASTNode node: nodes) {
             if(node instanceof Stylerule){
-                scope++;
                 variableTypes.addFirst(new HashMap<>());
-                check(((Stylerule) node).body, variableTypes, scope);
-                scope--;
+                check(((Stylerule) node).body);
+                variableTypes.removeFirst();
             }
             if(node instanceof VariableAssignment){
                 if(((VariableAssignment) node).expression instanceof BoolLiteral){
-                    variableTypes.get(scope).put(((VariableAssignment) node).name.name, ExpressionType.BOOL);
+                    variableTypes.getFirst().put(((VariableAssignment) node).name.name, ExpressionType.BOOL);
                 }
                 else if(((VariableAssignment) node).expression instanceof ColorLiteral){
-                    variableTypes.get(scope).put(((VariableAssignment) node).name.name, ExpressionType.COLOR);
+                    variableTypes.getFirst().put(((VariableAssignment) node).name.name, ExpressionType.COLOR);
                 }
                 else if(((VariableAssignment) node).expression instanceof PercentageLiteral){
-                    variableTypes.get(scope).put(((VariableAssignment) node).name.name, ExpressionType.PERCENTAGE);
+                    variableTypes.getFirst().put(((VariableAssignment) node).name.name, ExpressionType.PERCENTAGE);
                 }
                 else if(((VariableAssignment) node).expression instanceof PixelLiteral){
-                    variableTypes.get(scope).put(((VariableAssignment) node).name.name, ExpressionType.PIXEL);
+                    variableTypes.getFirst().put(((VariableAssignment) node).name.name, ExpressionType.PIXEL);
                 }
                 else if(((VariableAssignment) node).expression instanceof ScalarLiteral){
-                    variableTypes.get(scope).put(((VariableAssignment) node).name.name, ExpressionType.SCALAR);
+                    variableTypes.getFirst().put(((VariableAssignment) node).name.name, ExpressionType.SCALAR);
                 }
-                else variableTypes.get(scope).put(((VariableAssignment) node).name.name, ExpressionType.UNDEFINED);
+                else variableTypes.getFirst().put(((VariableAssignment) node).name.name, ExpressionType.UNDEFINED);
             }
             if(node instanceof Declaration){
-                checkInitialisedVariables((Declaration) node, variableTypes);
-                checkDeclaration((Declaration) node, variableTypes);
+                //checkInitialisedVariable(((Declaration) node);
+                checkDeclaration((Declaration) node);
             }
             if(node instanceof IfClause){
-                if(!variableTypes.iterator().next().containsKey(((VariableReference) ((IfClause) node).conditionalExpression).name)){
-                    node.setError("variable " + ((VariableReference) ((IfClause) node).conditionalExpression).name + " is not initialised");
+                if(((IfClause) node).conditionalExpression instanceof VariableReference){
+                    if((checkInitialisedVariable((VariableReference) ((IfClause) node).conditionalExpression))){
+
+                    }
+                    else node.setError("variable " + ((VariableReference) ((IfClause) node).conditionalExpression).name + " is not initialised");
                 }
-                /*if(variables.stream().noneMatch(variableAssignment -> variableAssignment.name.equals(((IfClause) node).conditionalExpression))){
-                    node.setError(((IfClause) node).conditionalExpression + " in if clause");
-                }*/
-                scope++;
-                check(((IfClause) node).body, variableTypes, scope);
-                scope--;
+                else if(!(((IfClause) node).conditionalExpression instanceof BoolLiteral)){
+                    node.setError("not a boolean expression");
+                }
+                variableTypes.addFirst(new HashMap<>());
+                check(((IfClause) node).body);
+                variableTypes.removeFirst();
             }
         }
     }
 
-    private void checkDeclaration(Declaration node, IHANLinkedList<HashMap<String, ExpressionType>> variableTypes) {
+    private void checkDeclaration(Declaration node) {
         //CH01
         if (node.expression instanceof Operation){
             //operation within lhs
@@ -82,28 +84,30 @@ public class Checker {
             }
             //CH02
             if(node.expression instanceof MultiplyOperation){
-                checkMultiply(node, variableTypes);
+                checkMultiply(node);
             }
             if(node.expression instanceof AddOperation | node.expression instanceof SubtractOperation){
 
             }
-            checkAdd(node, variableTypes);
-            checkSubtract(node, variableTypes);
+            checkAdd(node);
+            checkSubtract(node);
         }
     }
 
-    private void checkSubtract(ASTNode node, IHANLinkedList<HashMap<String, ExpressionType>> variableTypes) {
+    private void checkSubtract(ASTNode node) {
     }
 
-    private void checkInitialisedVariables(Declaration node, IHANLinkedList<HashMap<String, ExpressionType>> variableTypes) {
-        if (node.expression instanceof VariableReference){
-            if(!variableTypes.iterator().next().containsKey(((VariableReference) node.expression).name)){
-                node.setError("variable " + ((VariableReference) node.expression).name + " is not initialised");
+    private boolean checkInitialisedVariable(VariableReference node) {
+        for (HashMap<String, ExpressionType> hashMap:
+             variableTypes) {
+            if(hashMap!=null && hashMap.containsKey(node.name)){
+                return true;
             }
         }
+        return false;
     }
 
-    private void checkMultiply(ASTNode node, IHANLinkedList<HashMap<String, ExpressionType>> variableTypes) {
+    private void checkMultiply(ASTNode node) {
         if(node instanceof MultiplyOperation){
             //check variable type
             if(((MultiplyOperation) node).lhs instanceof VariableReference){
@@ -124,7 +128,7 @@ public class Checker {
         }
     }
 
-    private void checkAdd(ASTNode node, IHANLinkedList<HashMap<String, ExpressionType>> variableTypes) {
+    private void checkAdd(ASTNode node) {
         if(node instanceof AddOperation){
 
             if(((AddOperation) node).lhs instanceof VariableReference) {

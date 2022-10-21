@@ -133,16 +133,22 @@ public class HANLinkedList<T> implements IHANLinkedList<T>{
      * @return an Iterator.
      */
     @Override
-    public Iterator iterator() {
-        return new Iterator() {
+    public Iterator<T> iterator() {
+        return new Iterator<>() {
+            ListNode<T> current = header.next;
             @Override
             public boolean hasNext() {
-                return header.next != null;
+                return current != null;
             }
 
             @Override
-            public Object next() {
-                return header.next.element;
+            public T next() {
+                if(hasNext()){
+                    T element = current.element;
+                    current = current.next;
+                    return element;
+                }
+                return null;
             }
         };
     }
