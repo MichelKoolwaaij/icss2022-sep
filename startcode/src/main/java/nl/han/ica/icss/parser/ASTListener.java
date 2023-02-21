@@ -2,9 +2,6 @@ package nl.han.ica.icss.parser;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Stack;
-
-
 import nl.han.ica.datastructures.HANStack;
 import nl.han.ica.datastructures.IHANStack;
 import nl.han.ica.icss.ast.*;
