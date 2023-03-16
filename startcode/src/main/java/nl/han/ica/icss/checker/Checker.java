@@ -45,12 +45,13 @@ public class Checker {
 
     private void checkIfClause(ASTNode node) {
         if (((IfClause) node).conditionalExpression instanceof VariableReference) {
-            if ((findInitialisedVariable((VariableReference) ((IfClause) node).conditionalExpression)==null)) {
+            if ((getInitialisedVariableType((VariableReference) ((IfClause) node).conditionalExpression)!=null)) {
                 //CH05 variable reference
-                if (!Objects.equals(findInitialisedVariable((VariableReference) ((IfClause) node).conditionalExpression), ExpressionType.BOOL)) {
+                if (!Objects.equals(getInitialisedVariableType((VariableReference) ((IfClause) node).conditionalExpression), ExpressionType.BOOL)) {
                     node.setError("variable " + ((VariableReference) ((IfClause) node).conditionalExpression).name + " is not a boolean");
                 }
-            } else
+            }
+            else
                 node.setError("variable " + ((VariableReference) ((IfClause) node).conditionalExpression).name + " is not initialised");
         }
         //CH05 boolean literal
@@ -83,33 +84,33 @@ public class Checker {
 
     private void checkDeclaration(Declaration node) {
         if (node.expression instanceof VariableReference) {
-            if (findInitialisedVariable((VariableReference) node.expression)==null) {
+            if (getInitialisedVariableType((VariableReference) node.expression)==null) {
                 node.setError("variable " + ((VariableReference) node.expression).name + " is not initialised");
             }
         }
         //CH01
         if (node.expression instanceof Operation) {
-            checkOperation(node);
+            checkOperation((Operation) node.expression);
         }
         if(node.expression instanceof ScalarLiteral){
             node.setError("Property cannot be scalar");
         }
     }
 
-    private void checkOperation(Declaration node) {
+    private void checkOperation(Operation node) {
         //CH03 for non variables
-        if (((Operation) node.expression).lhs instanceof ColorLiteral || ((Operation) node.expression).rhs instanceof ColorLiteral) {
+        if (node.lhs instanceof ColorLiteral || node.rhs instanceof ColorLiteral) {
             node.setError("Operations don't work with colors");
         }
         //CH02
-        else if (node.expression instanceof MultiplyOperation) {
-            checkMultiply((MultiplyOperation) node.expression);
-        } else if (node.expression instanceof AddOperation) {
-            checkAdd((AddOperation) node.expression);
-        } else if (node.expression instanceof SubtractOperation) {
+        else if (node instanceof MultiplyOperation) {
+            checkMultiply((MultiplyOperation) node);
+        } else if (node instanceof AddOperation) {
+            checkAdd((AddOperation) node);
+        } else if (node instanceof SubtractOperation) {
             IHANLinkedList<HashMap<String, ExpressionType>> literals = new HANLinkedList<>();
             literals.addFirst(new HashMap<>());
-            checkSubtract(node.property, (SubtractOperation) node.expression, literals);
+            //checkSubtract(node.property, (SubtractOperation) node.expression, literals);
         }
     }
 
@@ -131,32 +132,32 @@ public class Checker {
         }
         else return ExpressionType.UNDEFINED;
     }
-    private void checkSubtract(PropertyName propertyName, SubtractOperation node, IHANLinkedList<HashMap<String, ExpressionType>> literals) {
-        if(node.lhs instanceof Literal){
-            literals.getFirst().put(propertyName.name, getExpressionType((Literal) node.lhs));
+    private void checkSubtract(SubtractOperation node) {
+        if(node.lhs instanceof Literal || node.rhs instanceof Literal){
+
         }
-        else if(node.lhs instanceof VariableReference){
-            ExpressionType type = findInitialisedVariable(((VariableReference) node.lhs));
-            if(type==null){
-                node.setError("Variable is not initialised");
+        else if(node.lhs instanceof VariableReference || node.rhs instanceof VariableReference){
+            if(node.lhs instanceof VariableReference && node.rhs instanceof VariableReference){
+
             }
-            else if (!type.equals(getExpressionType((Literal) node.rhs))){
-                node.setError("nodes must be of the same type");
+            else if(node.lhs instanceof VariableReference && getInitialisedVariableType((VariableReference) node.lhs)!=null){
+                //checkVariableReferenceInitialization((VariableReference) node.lhs);
+            }
+            else {
+                //checkVariableReferenceInitialization((VariableReference) node.rhs);
             }
         }
         else if(node.lhs instanceof Operation){
 
         }
-        //two literals
+        //one or two literals
 
-        //two variables
+        //one or two variables
 
-        //1 v
-
-        //
+        //one or two operation: 2px*4-7%*2
     }
 
-    private ExpressionType findInitialisedVariable(VariableReference node) {
+    private ExpressionType getInitialisedVariableType(VariableReference node) {
         for (HashMap<String, ExpressionType> hashMap :
                 variableTypes) {
             if (hashMap != null && hashMap.containsKey(node.name)) {
@@ -167,11 +168,12 @@ public class Checker {
     }
 
     private void checkMultiply(MultiplyOperation node) {
+
         //Both variables
         if (node.lhs instanceof VariableReference && node.rhs instanceof VariableReference) {
-            if (findInitialisedVariable((VariableReference) node.lhs)!=null && findInitialisedVariable((VariableReference) node.rhs)!=null) {
-                ExpressionType lhsType = findInitialisedVariable((VariableReference) node.lhs);
-                ExpressionType rhsType = findInitialisedVariable((VariableReference) node.rhs);
+            if (getInitialisedVariableType((VariableReference) node.lhs)!=null && getInitialisedVariableType((VariableReference) node.rhs)!=null) {
+                ExpressionType lhsType = getInitialisedVariableType((VariableReference) node.lhs);
+                ExpressionType rhsType = getInitialisedVariableType((VariableReference) node.rhs);
                 if (Objects.equals(lhsType, ExpressionType.SCALAR) || Objects.equals(rhsType, ExpressionType.SCALAR)) {
                     if (Objects.equals(lhsType, ExpressionType.BOOL) || Objects.equals(rhsType, ExpressionType.BOOL)) {
                         node.setError("booleans are not allowed in products");
@@ -181,8 +183,8 @@ public class Checker {
         }
         //lhs is variable
         else if (node.lhs instanceof VariableReference) {
-            if (findInitialisedVariable((VariableReference) node.lhs)!=null) {
-                ExpressionType type = findInitialisedVariable((VariableReference) node.lhs);
+            if (getInitialisedVariableType((VariableReference) node.lhs)!=null) {
+                ExpressionType type = getInitialisedVariableType((VariableReference) node.lhs);
                 if (Objects.equals(type, ExpressionType.COLOR)) {
                     node.setError("Operations don't work with colors");
                 } else if (!Objects.equals(type, ExpressionType.SCALAR) && !(node.rhs instanceof ScalarLiteral)) {
@@ -192,8 +194,8 @@ public class Checker {
         }
         //rhs is variable
         else if (node.rhs instanceof VariableReference) {
-            if (findInitialisedVariable((VariableReference) node.rhs)!=null) {
-                ExpressionType type = findInitialisedVariable((VariableReference) node.rhs);
+            if (getInitialisedVariableType((VariableReference) node.rhs)!=null) {
+                ExpressionType type = getInitialisedVariableType((VariableReference) node.rhs);
                 if (Objects.equals(type, ExpressionType.COLOR)) {
                     node.setError("Operations don't work with colors");
                 } else if (!Objects.equals(type, ExpressionType.SCALAR) && !(node.lhs instanceof ScalarLiteral)) {
@@ -210,81 +212,54 @@ public class Checker {
             node.setError("Property cannot be scalar");
         }
         else if(node.lhs instanceof Operation){
-            if(node.lhs instanceof MultiplyOperation){
-                checkMultiply((MultiplyOperation) node.lhs);
-            }
-            else if(node.lhs instanceof AddOperation){
-                checkAdd((AddOperation) node.lhs);
-            }
-            else if(node.lhs instanceof SubtractOperation){
-                //checkSubtract((SubtractOperation) node.lhs);
-            }
+            checkOperation((Operation) node.lhs);
+        }
+        else if(node.rhs instanceof Operation){
+            checkOperation((Operation) node.rhs);
         }
     }
 
     private void checkAdd(AddOperation node) {
+        //operation
+        if(node.lhs instanceof Operation || node.rhs instanceof Operation){
+            if(node.lhs instanceof Operation){
+                checkOperation((Operation) node.lhs);
+            }
+            else checkOperation((Operation) node.rhs);
+        }
         //lhs and rhs are variables
         if (node.lhs instanceof VariableReference && node.rhs instanceof VariableReference) {
-            if (findInitialisedVariable((VariableReference) node.lhs)==null && findInitialisedVariable((VariableReference) node.rhs)==null) {
-                if (Objects.equals(findInitialisedVariable((VariableReference) node.lhs), ExpressionType.COLOR) || Objects.equals(findInitialisedVariable((VariableReference) node.rhs), ExpressionType.COLOR)) {
+            if (getInitialisedVariableType((VariableReference) node.lhs)!=null && getInitialisedVariableType((VariableReference) node.rhs)!=null) {
+                if (Objects.equals(getInitialisedVariableType((VariableReference) node.lhs), ExpressionType.COLOR) || Objects.equals(getInitialisedVariableType((VariableReference) node.rhs), ExpressionType.COLOR)) {
                     node.setError("Operations don't work with colors");
-                } else if (!Objects.equals(findInitialisedVariable((VariableReference) node.lhs), findInitialisedVariable((VariableReference) node.rhs))) {
+                } else if (!Objects.equals(getInitialisedVariableType((VariableReference) node.lhs), getInitialisedVariableType((VariableReference) node.rhs))) {
                     node.setError("Variables are not from the same type");
                 }
             } else node.setError("One of the variables " + node + " is not initialised");
         }
         //lhs is variable
         else if (node.lhs instanceof VariableReference) {
-            if (findInitialisedVariable((VariableReference) node.lhs)==null) {
-                ExpressionType type = findInitialisedVariable((VariableReference) node.lhs);
-                if (Objects.equals(type, ExpressionType.COLOR) || node.rhs.getClass().equals(ColorLiteral.class)) {
-                    node.setError("Operations don't work with colors");
-                } else if (matchingVariableTypeAndLiteral(Objects.requireNonNull(type), (Literal) node.rhs)) {
-                    node.setError("Cannot add different types");
+                ExpressionType type = getInitialisedVariableType((VariableReference) node.lhs);
+                if(type==null){
+                    node.setError("variable " + ((VariableReference) node.lhs).name + " is not initialised");
                 }
-            } else node.setError("variable " + ((VariableReference) node.lhs).name + " is not initialised");
+                else if (Objects.equals(type, ExpressionType.COLOR) || node.rhs.getClass().equals(ColorLiteral.class)) {
+                    node.setError("Operations don't work with colors");
+                }
         }
         //rhs is variable
         else if (node.rhs instanceof VariableReference) {
-            if (findInitialisedVariable((VariableReference) node.rhs)==null) {
-                ExpressionType type = findInitialisedVariable((VariableReference) node.rhs);
+            if (getInitialisedVariableType((VariableReference) node.rhs)!=null) {
+                ExpressionType type = getInitialisedVariableType((VariableReference) node.rhs);
                 if (Objects.equals(type, ExpressionType.COLOR) || node.lhs.getClass().equals(ColorLiteral.class)) {
                     node.setError("Operations don't work with colors");
-                } else if (matchingVariableTypeAndLiteral(Objects.requireNonNull(type), (Literal) node.lhs)) {
-                    node.setError("Cannot add different types");
                 }
             } else node.setError("variable " + ((VariableReference) node.rhs).name + " is not initialised");
         }
-        //if rhs and lhs are not variables
-        /*else if (!node.lhs.getClass().equals(node.rhs.getClass())) {
-            node.setError("Cannot add different types");
-        }*/
-        else if(node.lhs instanceof Operation){
-            if(node.lhs instanceof MultiplyOperation){
-                checkMultiply((MultiplyOperation) node.lhs);
-            }
-            else if(node.lhs instanceof AddOperation){
-                checkAdd((AddOperation) node.lhs);
-            }
-            else if(node.lhs instanceof SubtractOperation){
-                //checkSubtract((SubtractOperation) node.lhs);
+        else if(node.lhs instanceof Literal && node.rhs instanceof Literal){
+            if(!getExpressionType((Literal) node.lhs).equals(getExpressionType((Literal) node.rhs))){
+                node.setError("Literals must be of the same type");
             }
         }
-    }
-
-    private boolean matchingVariableTypeAndLiteral(ExpressionType type, Literal node) {
-        if (type.equals(ExpressionType.BOOL) && node instanceof BoolLiteral) {
-            return false;
-        }
-        if (type.equals(ExpressionType.COLOR) && node instanceof ColorLiteral) {
-            return false;
-        }
-        if (type.equals(ExpressionType.PERCENTAGE) && node instanceof PercentageLiteral) {
-            return false;
-        }
-        if (type.equals(ExpressionType.PIXEL) && node instanceof PixelLiteral) {
-            return false;
-        }
-        return !type.equals(ExpressionType.SCALAR) || !(node instanceof ScalarLiteral);
     }
 }
