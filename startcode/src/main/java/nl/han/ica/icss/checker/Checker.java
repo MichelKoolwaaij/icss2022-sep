@@ -90,28 +90,29 @@ public class Checker {
         }
         //CH01
         if (node.expression instanceof Operation) {
-            checkOperation((Operation) node.expression);
+            checkOperation((Operation) node.expression, new HANLinkedList<ExpressionType>());
         }
         if(node.expression instanceof ScalarLiteral){
             node.setError("Property cannot be scalar");
         }
     }
 
-    private void checkOperation(Operation node) {
+    private ExpressionType checkOperation(Operation node, HANLinkedList<ExpressionType> expressionTypes) {
         //CH03 for non variables
         if (node.lhs instanceof ColorLiteral || node.rhs instanceof ColorLiteral) {
             node.setError("Operations don't work with colors");
         }
         //CH02
         else if (node instanceof MultiplyOperation) {
-            checkMultiply((MultiplyOperation) node);
+            return checkMultiply((MultiplyOperation) node,expressionTypes);
         } else if (node instanceof AddOperation) {
-            checkAdd((AddOperation) node);
+            return checkAdd((AddOperation) node, expressionTypes);
         } else if (node instanceof SubtractOperation) {
             IHANLinkedList<HashMap<String, ExpressionType>> literals = new HANLinkedList<>();
             literals.addFirst(new HashMap<>());
             //checkSubtract(node.property, (SubtractOperation) node.expression, literals);
         }
+        return ExpressionType.UNDEFINED;
     }
 
     public ExpressionType getExpressionType(Literal literal){
@@ -132,6 +133,7 @@ public class Checker {
         }
         else return ExpressionType.UNDEFINED;
     }
+
     private void checkSubtract(SubtractOperation node) {
         if(node.lhs instanceof Literal || node.rhs instanceof Literal){
 
@@ -167,65 +169,122 @@ public class Checker {
         return null;
     }
 
-    private void checkMultiply(MultiplyOperation node) {
-
-        //Both variables
-        if (node.lhs instanceof VariableReference && node.rhs instanceof VariableReference) {
-            if (getInitialisedVariableType((VariableReference) node.lhs)!=null && getInitialisedVariableType((VariableReference) node.rhs)!=null) {
+    private ExpressionType checkMultiply(MultiplyOperation node, HANLinkedList<ExpressionType> expressionTypes) {
+        //operations
+        if(node.lhs instanceof Operation || node.rhs instanceof Operation){
+            if (node.lhs instanceof Operation){
+                expressionTypes.addFirst(checkOperation((Operation) node.lhs, expressionTypes));
+            }
+            else{
+                expressionTypes.addFirst(checkOperation((Operation) node.rhs, expressionTypes));
+            }
+            return expressionTypes.getFirst();
+        }
+        //variables
+        if(node.lhs instanceof VariableReference || node.rhs instanceof VariableReference){
+            //both variables
+            if (node.lhs instanceof VariableReference && node.rhs instanceof VariableReference) {
                 ExpressionType lhsType = getInitialisedVariableType((VariableReference) node.lhs);
+                if (lhsType ==null){
+                    node.lhs.setError("variable " + ((VariableReference) node.lhs).name + " is not initialized");
+                    return ExpressionType.UNDEFINED;
+                }
                 ExpressionType rhsType = getInitialisedVariableType((VariableReference) node.rhs);
-                if (Objects.equals(lhsType, ExpressionType.SCALAR) || Objects.equals(rhsType, ExpressionType.SCALAR)) {
-                    if (Objects.equals(lhsType, ExpressionType.BOOL) || Objects.equals(rhsType, ExpressionType.BOOL)) {
-                        node.setError("booleans are not allowed in products");
-                    }
-                } else node.setError("Products need at least one scalar value");
-            } else node.setError("One of the variables " + node + " is not initialised");
-        }
-        //lhs is variable
-        else if (node.lhs instanceof VariableReference) {
-            if (getInitialisedVariableType((VariableReference) node.lhs)!=null) {
-                ExpressionType type = getInitialisedVariableType((VariableReference) node.lhs);
-                if (Objects.equals(type, ExpressionType.COLOR)) {
-                    node.setError("Operations don't work with colors");
-                } else if (!Objects.equals(type, ExpressionType.SCALAR) && !(node.rhs instanceof ScalarLiteral)) {
-                    node.setError("Products need at least one scalar value");
+                if (rhsType ==null){
+                    node.rhs.setError("variable " + ((VariableReference) node.rhs).name + " is not initialized");
+                    return ExpressionType.UNDEFINED;
                 }
-            } else node.setError("variable " + ((VariableReference) node.lhs).name + " is not initialised");
-        }
-        //rhs is variable
-        else if (node.rhs instanceof VariableReference) {
-            if (getInitialisedVariableType((VariableReference) node.rhs)!=null) {
-                ExpressionType type = getInitialisedVariableType((VariableReference) node.rhs);
-                if (Objects.equals(type, ExpressionType.COLOR)) {
-                    node.setError("Operations don't work with colors");
-                } else if (!Objects.equals(type, ExpressionType.SCALAR) && !(node.lhs instanceof ScalarLiteral)) {
-                    node.setError("Products need at least one scalar value");
+                return checkMultiplicationTypes(node, lhsType, rhsType);
+            }
+            //lhs is variable
+            else if(node.lhs instanceof VariableReference){
+                ExpressionType lhsType = getInitialisedVariableType((VariableReference) node.lhs);
+                if (lhsType ==null){
+                    node.lhs.setError("variable " + ((VariableReference) node.lhs).name + " is not initialized");
+                    return ExpressionType.UNDEFINED;
                 }
-            } else node.setError("variable " + ((VariableReference) node.rhs).name + " is not initialised");
+                return checkMultiplicationTypes(node,lhsType,getExpressionType((Literal) node.rhs));
+            }
+            //rhs is variable
+            else {
+                ExpressionType rhsType = getInitialisedVariableType((VariableReference) node.rhs);
+                if (rhsType ==null){
+                    node.rhs.setError("variable " + ((VariableReference) node.rhs).name + " is not initialized");
+                    return ExpressionType.UNDEFINED;
+                }
+                return checkMultiplicationTypes(node,getExpressionType((Literal) node.lhs),rhsType);
+            }
         }
-        //if node is not a variable
-        else if (!((node.lhs instanceof ScalarLiteral) || node.rhs instanceof ScalarLiteral)) {
+        //literals
+        assert node.lhs instanceof Literal;
+        return checkMultiplicationTypes(node, getExpressionType((Literal) node.lhs), getExpressionType((Literal) node.rhs));
+//        //lhs is variable
+//        else if (node.lhs instanceof VariableReference) {
+//            if (getInitialisedVariableType((VariableReference) node.lhs)!=null) {
+//                ExpressionType type = getInitialisedVariableType((VariableReference) node.lhs);
+//                if (Objects.equals(type, ExpressionType.COLOR)) {
+//                    node.setError("Operations don't work with colors");
+//                } else if (!Objects.equals(type, ExpressionType.SCALAR) && !(node.rhs instanceof ScalarLiteral)) {
+//                    node.setError("Products need at least one scalar value");
+//                }
+//            } else node.setError("variable " + ((VariableReference) node.lhs).name + " is not initialised");
+//        }
+//        //rhs is variable
+//        else if (node.rhs instanceof VariableReference) {
+//            if (getInitialisedVariableType((VariableReference) node.rhs)!=null) {
+//                ExpressionType type = getInitialisedVariableType((VariableReference) node.rhs);
+//                if (Objects.equals(type, ExpressionType.COLOR)) {
+//                    node.setError("Operations don't work with colors");
+//                } else if (!Objects.equals(type, ExpressionType.SCALAR) && !(node.lhs instanceof ScalarLiteral)) {
+//                    node.setError("Products need at least one scalar value");
+//                }
+//            } else node.setError("variable " + ((VariableReference) node.rhs).name + " is not initialised");
+//        }
+//        //if node is not a variable
+//        else if (!((node.lhs instanceof ScalarLiteral) || node.rhs instanceof ScalarLiteral)) {
+//            node.setError("Products need at least one scalar value");
+//        }
+//        //if lhs and rhs are both scalar
+//        else if (node.lhs instanceof ScalarLiteral && node.rhs instanceof ScalarLiteral){
+//            node.setError("Property cannot be scalar");
+//        }
+//        else if(node.lhs instanceof Operation){
+//            checkOperation((Operation) node.lhs);
+//        }
+//        else if(node.rhs instanceof Operation){
+//            checkOperation((Operation) node.rhs);
+//        }
+    }
+
+    private static ExpressionType checkMultiplicationTypes(MultiplyOperation node, ExpressionType lhsType, ExpressionType rhsType) {
+        if(lhsType.equals(ExpressionType.COLOR) || rhsType.equals(ExpressionType.COLOR)){
+            node.setError("no colors in products");
+            return ExpressionType.UNDEFINED;
+        }
+        if(lhsType.equals(ExpressionType.BOOL) || rhsType.equals(ExpressionType.BOOL)){
+            node.setError("no booleans in products");
+            return ExpressionType.UNDEFINED;
+        }
+        if(lhsType.equals(ExpressionType.SCALAR) || rhsType.equals(ExpressionType.SCALAR)){
+            if(lhsType.equals(ExpressionType.SCALAR) && rhsType.equals(ExpressionType.SCALAR)){
+                node.setError("Products must have one unit");
+                return ExpressionType.UNDEFINED;
+            }
+            if(lhsType.equals(ExpressionType.SCALAR)){
+                return rhsType;
+            }
+            else return lhsType;
+        }
+        else {
             node.setError("Products need at least one scalar value");
-        }
-        //if lhs and rhs are both scalar
-        else if (node.lhs instanceof ScalarLiteral && node.rhs instanceof ScalarLiteral){
-            node.setError("Property cannot be scalar");
-        }
-        else if(node.lhs instanceof Operation){
-            checkOperation((Operation) node.lhs);
-        }
-        else if(node.rhs instanceof Operation){
-            checkOperation((Operation) node.rhs);
+            return ExpressionType.UNDEFINED;
         }
     }
 
-    private void checkAdd(AddOperation node) {
-        //operation
-        if(node.lhs instanceof Operation || node.rhs instanceof Operation){
-            if(node.lhs instanceof Operation){
-                checkOperation((Operation) node.lhs);
-            }
-            else checkOperation((Operation) node.rhs);
+    private ExpressionType checkAdd(AddOperation node, HANLinkedList<ExpressionType> expressionTypes) {
+        //operation consists of one or two operations
+        if (node.lhs instanceof Operation || node.rhs instanceof Operation) {
+            getInnerOperationType(node,expressionTypes);
         }
         //lhs and rhs are variables
         if (node.lhs instanceof VariableReference && node.rhs instanceof VariableReference) {
@@ -246,6 +305,12 @@ public class Checker {
                 else if (Objects.equals(type, ExpressionType.COLOR) || node.rhs.getClass().equals(ColorLiteral.class)) {
                     node.setError("Operations don't work with colors");
                 }
+                else if(node.rhs instanceof Operation && !type.equals(expressionTypes.getFirst())){
+                    node.setError("Other part of operation is not from the same type");
+                }
+                else if(node.rhs instanceof Literal && !type.equals(getExpressionType((Literal) node.rhs))){
+                    node.setError("Other literal is not from the same type");
+                }
         }
         //rhs is variable
         else if (node.rhs instanceof VariableReference) {
@@ -256,9 +321,38 @@ public class Checker {
                 }
             } else node.setError("variable " + ((VariableReference) node.rhs).name + " is not initialised");
         }
-        else if(node.lhs instanceof Literal && node.rhs instanceof Literal){
-            if(!getExpressionType((Literal) node.lhs).equals(getExpressionType((Literal) node.rhs))){
-                node.setError("Literals must be of the same type");
+        //lhs and/or rhs are literals
+        else if(node.lhs instanceof Literal || node.rhs instanceof Literal){
+            if(node.lhs instanceof Literal && node.rhs instanceof Literal){
+                if(!getExpressionType((Literal) node.lhs).equals(getExpressionType((Literal) node.rhs))){
+                    node.setError("Literals must be of the same type");
+                }
+            }
+            else if(node.lhs instanceof Literal){
+                if(!getExpressionType((Literal) node.lhs).equals(expressionTypes.getFirst())){
+                    node.setError("Literals must be of the same type");
+                }
+            }
+            else {
+                if(!getExpressionType((Literal) node.rhs).equals(expressionTypes.getFirst())){
+                    node.setError("Literals must be of the same type");
+                }
+            }
+        }
+        return null;
+    }
+
+    private void getInnerOperationType(AddOperation node, HANLinkedList<ExpressionType> expressionTypes) {
+        if(node.lhs instanceof Operation || node.rhs instanceof Operation){
+            if(node.lhs instanceof Operation && node.rhs instanceof Operation){
+                expressionTypes.addFirst(checkOperation((Operation) node.lhs, expressionTypes));
+                expressionTypes.addFirst(checkOperation((Operation) node.rhs, expressionTypes));
+            }
+            if (node.lhs instanceof Operation){
+                expressionTypes.addFirst(checkOperation((Operation) node.lhs, expressionTypes));
+            }
+            else{
+                expressionTypes.addFirst(checkOperation((Operation) node.rhs, expressionTypes));
             }
         }
     }
