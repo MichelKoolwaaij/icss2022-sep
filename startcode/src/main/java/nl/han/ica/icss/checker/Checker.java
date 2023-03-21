@@ -11,6 +11,7 @@ import nl.han.ica.icss.ast.types.ExpressionType;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Objects;
 
 
@@ -77,7 +78,7 @@ public class Checker {
         } else if (node.expression instanceof PixelLiteral) {
             variableTypes.getFirst().put(node.name.name, ExpressionType.PIXEL);
         } else if (node.expression instanceof ScalarLiteral) {
-            variableTypes.getFirst().put(node.name.name, ExpressionType.SCALAR);
+            node.setError("Variable cannot be scalar");
         } else variableTypes.getFirst().put(node.name.name, ExpressionType.UNDEFINED);
     }
 
@@ -103,7 +104,7 @@ public class Checker {
         }
         //CH02
         else if (node instanceof MultiplyOperation) {
-            return checkMultiply((MultiplyOperation) node);
+            return checkMultiply((MultiplyOperation) node, new HANLinkedList<>());
         } else if (node instanceof AddOperation) {
             return checkAdd((AddOperation) node);
         } else if (node instanceof SubtractOperation) {
@@ -144,60 +145,139 @@ public class Checker {
         return null;
     }
 
-    private ExpressionType checkMultiply(MultiplyOperation node) {
-        if (node.lhs instanceof Literal || node.rhs instanceof Literal) {
-            if (node.lhs instanceof Literal && node.rhs instanceof Literal) {
-                if (node.lhs instanceof ScalarLiteral && node.rhs instanceof ScalarLiteral) {
-                    node.setError("cannot have two scalar values in product");
-                } else if (node.lhs instanceof BoolLiteral || node.rhs instanceof BoolLiteral) {
-                    node.setError("cannot have two booleans");
+    private ExpressionType checkMultiply(MultiplyOperation node, IHANLinkedList<ExpressionType> expressionTypes) {
+        if(node.lhs instanceof MultiplyOperation || node.rhs instanceof  MultiplyOperation){
+            if(node.lhs instanceof MultiplyOperation){
+                if(node.rhs instanceof Literal){
+                    expressionTypes.addFirst(getExpressionType((Literal) node.rhs));
                 }
+                else {
+                    expressionTypes.addFirst(getInitialisedVariableType((VariableReference) node.rhs));
+                }
+                return checkMultiply((MultiplyOperation) node.lhs,expressionTypes);
+            }
+            else {
+                if(node.lhs instanceof Literal){
+                    expressionTypes.addFirst(getExpressionType((Literal) node.lhs));
+                }
+                else expressionTypes.addFirst(getInitialisedVariableType((VariableReference) node.lhs));
+                return checkMultiply((MultiplyOperation) node.rhs,expressionTypes);
             }
         }
-        /*if (node.lhs instanceof MultiplyOperation) {
-
-        }*/
-        //operations
-        /*if (node.lhs instanceof Operation || node.rhs instanceof Operation) {
-            if (node.lhs instanceof Operation) {
-                //expressionTypes.addFirst(checkOperation((Operation) node.lhs, expressionTypes));
-            } else {
-                //expressionTypes.addFirst(checkOperation((Operation) node.rhs, expressionTypes));
-            }
-            //expressionTypes.getFirst();
-        }*/
         //variables
         if (node.lhs instanceof VariableReference || node.rhs instanceof VariableReference) {
             //both variables
             if (node.lhs instanceof VariableReference && node.rhs instanceof VariableReference) {
                 ExpressionType lhsType = getInitialisedVariableType((VariableReference) node.lhs);
+                ExpressionType rhsType = getInitialisedVariableType((VariableReference) node.rhs);
                 if (lhsType == null) {
                     node.lhs.setError("variable " + ((VariableReference) node.lhs).name + " is not initialized");
                 }
-                ExpressionType rhsType = getInitialisedVariableType((VariableReference) node.rhs);
-                if (rhsType == null) {
+                else if (rhsType == null) {
                     node.rhs.setError("variable " + ((VariableReference) node.rhs).name + " is not initialized");
                 }
-                //return checkMultiplicationTypes(node, lhsType, rhsType);
+                else if(expressionTypes.getSize()>0){
+                    expressionTypes.addFirst(rhsType);
+                    expressionTypes.addFirst(lhsType);
+                    return checkMultiplicationWithThreeOrMoreNumbers(node, expressionTypes);
+                }
+                else if(lhsType.equals(rhsType)){
+                    return lhsType;
+                }
+                else return ExpressionType.UNDEFINED;
             }
-            //lhs is variable
+            //lhs is variable and we can assume rhs is literal
             else if (node.lhs instanceof VariableReference) {
                 ExpressionType lhsType = getInitialisedVariableType((VariableReference) node.lhs);
                 if (lhsType == null) {
                     node.lhs.setError("variable " + ((VariableReference) node.lhs).name + " is not initialized");
                     //return ExpressionType.UNDEFINED;
                 }
-                //return checkMultiplicationTypes(node,lhsType,getExpressionType((Literal) node.rhs));
+                else if(expressionTypes.getSize()>0){
+                    expressionTypes.addFirst(lhsType);
+                    return checkMultiplicationWithThreeOrMoreNumbers(node, expressionTypes);
+                }
+                else if(node.rhs instanceof PixelLiteral || node.rhs instanceof PercentageLiteral){
+                    node.setError("should be at least one scalar value in product");
+                    return ExpressionType.UNDEFINED;
+                }
+                else if(ExpressionType.SCALAR.equals(getExpressionType((Literal) node.rhs))){
+                    return lhsType;
+                }
+                else return ExpressionType.UNDEFINED;
             }
-            //rhs is variable
+            //rhs is variable and we can safely assume lhs is literal
             else {
                 ExpressionType rhsType = getInitialisedVariableType((VariableReference) node.rhs);
                 if (rhsType == null) {
                     node.rhs.setError("variable " + ((VariableReference) node.rhs).name + " is not initialized");
                     //return ExpressionType.UNDEFINED;
                 }
+                else if(expressionTypes.getSize()>0){
+                    expressionTypes.addFirst(rhsType);
+                    return checkMultiplicationWithThreeOrMoreNumbers(node, expressionTypes);
+                }
+                else if(node.lhs instanceof PixelLiteral || node.lhs instanceof PercentageLiteral){
+                    node.setError("should be at least one scalar value in product");
+                    return ExpressionType.UNDEFINED;
+                }
+                else if(ExpressionType.SCALAR.equals(getExpressionType((Literal) node.lhs))){
+                    return rhsType;
+                }
+                else return ExpressionType.UNDEFINED;
                 //return checkMultiplicationTypes(node,getExpressionType((Literal) node.lhs),rhsType);
             }
+        }
+        //both literals
+        if (node.lhs instanceof Literal && node.rhs instanceof Literal) {
+            if(expressionTypes.getSize()>0){
+                expressionTypes.addFirst(getExpressionType((Literal) node.rhs));
+                expressionTypes.addFirst(getExpressionType((Literal) node.lhs));
+                return checkMultiplicationWithThreeOrMoreNumbers(node,expressionTypes);
+            }
+            if (node.lhs instanceof ScalarLiteral && node.rhs instanceof ScalarLiteral) {
+                node.setError("cannot have two scalar values in product");
+                return ExpressionType.UNDEFINED;
+            } else if (!(node.lhs instanceof ScalarLiteral) && !(node.rhs instanceof ScalarLiteral)) {
+                node.setError("should be at least one scalar value in product");
+                return ExpressionType.UNDEFINED;
+            } else if (node.lhs instanceof BoolLiteral || node.rhs instanceof BoolLiteral) {
+                node.setError("cannot have two booleans");
+                return ExpressionType.UNDEFINED;
+            } else if (node.lhs instanceof ScalarLiteral) {
+                return getExpressionType((Literal) node.rhs);
+            } else {
+                return getExpressionType((Literal) node.lhs);
+            }
+        }
+        System.out.println("oh no");
+        return ExpressionType.UNDEFINED;
+    }
+
+    private ExpressionType checkMultiplicationWithThreeOrMoreNumbers(MultiplyOperation node, IHANLinkedList<ExpressionType> expressionTypes) {
+        boolean hasScalar = false;
+        List<ExpressionType> list = new ArrayList<>();
+        for (ExpressionType type :
+                expressionTypes) {
+            if(type.equals(ExpressionType.SCALAR)){
+                hasScalar = true;
+            }
+            if(type.equals(ExpressionType.PIXEL) || type.equals(ExpressionType.PERCENTAGE)){
+                list.add(type);
+            }
+        }
+        if(!hasScalar){
+            node.setError("Multiplication must contain at least one scalar value");
+            return ExpressionType.UNDEFINED;
+        }
+        if(list.size()==0){
+            node.setError("Multiplication must contain one pixel or percentage literal");
+        }
+        if(list.size()>1){
+            node.setError("Multiplication cannot contain more than one pixel or percentage literal");
+        }
+        if(list.size()==1){
+            return list.get(0);
         }
         return ExpressionType.UNDEFINED;
     }
