@@ -98,21 +98,28 @@ public class Checker {
             if (variableType == null) {
                 node.setError("variable " + ((VariableReference) node.expression).name + " is not initialised");
             }
-            checkProperty(node, propertyNames, variableType);
+            else if(!variableType.equals(ExpressionType.UNDEFINED)){
+                checkProperty(node, propertyNames, variableType);
+            }
         }
         //CH01
         if (node.expression instanceof Operation) {
             ExpressionType expressionType = checkOperation((Operation) node.expression);
-            checkProperty(node, propertyNames, expressionType);
+            if(!expressionType.equals(ExpressionType.UNDEFINED)){
+                checkProperty(node, propertyNames, expressionType);
+            }
         }
-        if (node.expression instanceof ScalarLiteral) {
-            node.setError("Property cannot be scalar");
+        if (node.expression instanceof Literal) {
+            if(node.expression instanceof ScalarLiteral){
+                node.setError("Property cannot be scalar");
+            }
+            else checkProperty(node, propertyNames, getExpressionType((Literal) node.expression));
         }
     }
 
     private void checkProperty(Declaration node, HashMap<String,List<ExpressionType>> types, ExpressionType type) {
         if(!types.get(node.property.name).contains(type)){
-            node.setError("Property " + node.property.name + " must be of type " + types);
+            node.setError("Property " + node.property.name + " must be of type " + types.get(node.property.name));
         }
     }
 
