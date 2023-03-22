@@ -18,11 +18,20 @@ import java.util.Objects;
 public class Checker {
 
     private IHANLinkedList<HashMap<String, ExpressionType>> variableTypes;
+    private final HashMap<String, List<ExpressionType>> propertyNames = new HashMap<>();
 
     public void check(AST ast) {
+        setupLinkedLists();
+        check(ast.root.body);
+    }
+
+    private void setupLinkedLists() {
         variableTypes = new HANLinkedList<>();
         variableTypes.addFirst(new HashMap<>());
-        check(ast.root.body);
+        propertyNames.put("width",List.of(ExpressionType.PIXEL,ExpressionType.PERCENTAGE));
+        propertyNames.put("height",List.of(ExpressionType.PIXEL,ExpressionType.PERCENTAGE));
+        propertyNames.put("color",List.of(ExpressionType.COLOR));
+        propertyNames.put("background-color",List.of(ExpressionType.COLOR));
     }
 
     private void check(ArrayList<ASTNode> nodes) {
@@ -83,17 +92,27 @@ public class Checker {
     }
 
     private void checkDeclaration(Declaration node) {
+
         if (node.expression instanceof VariableReference) {
-            if (getInitialisedVariableType((VariableReference) node.expression) == null) {
+            ExpressionType variableType = getInitialisedVariableType((VariableReference) node.expression);
+            if (variableType == null) {
                 node.setError("variable " + ((VariableReference) node.expression).name + " is not initialised");
             }
+            checkProperty(node, propertyNames, variableType);
         }
         //CH01
         if (node.expression instanceof Operation) {
-            checkOperation((Operation) node.expression);
+            ExpressionType expressionType = checkOperation((Operation) node.expression);
+            checkProperty(node, propertyNames, expressionType);
         }
         if (node.expression instanceof ScalarLiteral) {
             node.setError("Property cannot be scalar");
+        }
+    }
+
+    private void checkProperty(Declaration node, HashMap<String,List<ExpressionType>> types, ExpressionType type) {
+        if(!types.get(node.property.name).contains(type)){
+            node.setError("Property " + node.property.name + " must be of type " + types);
         }
     }
 
