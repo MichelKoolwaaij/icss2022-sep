@@ -88,7 +88,10 @@ public class Checker {
             variableTypes.getFirst().put(node.name.name, ExpressionType.PIXEL);
         } else if (node.expression instanceof ScalarLiteral) {
             node.setError("Variable cannot be scalar");
-        } else variableTypes.getFirst().put(node.name.name, ExpressionType.UNDEFINED);
+        } else if(node.expression instanceof Operation){
+            variableTypes.getFirst().put(node.name.name, checkOperation((Operation) node.expression));
+        }
+        else variableTypes.getFirst().put(node.name.name, ExpressionType.UNDEFINED);
     }
 
     private void checkDeclaration(Declaration node) {
