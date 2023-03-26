@@ -26,7 +26,6 @@ public class Stylerule extends ASTNode {
 		ArrayList<ASTNode> children = new ArrayList<>();
 		children.addAll(selectors);
 		children.addAll(body);
-
 		return children;
 	}
 

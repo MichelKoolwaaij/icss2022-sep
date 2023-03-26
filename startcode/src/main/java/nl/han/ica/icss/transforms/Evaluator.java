@@ -3,6 +3,7 @@ package nl.han.ica.icss.transforms;
 import nl.han.ica.datastructures.HANLinkedList;
 import nl.han.ica.datastructures.IHANLinkedList;
 import nl.han.ica.icss.ast.*;
+import nl.han.ica.icss.ast.literals.BoolLiteral;
 import nl.han.ica.icss.ast.literals.PercentageLiteral;
 import nl.han.ica.icss.ast.literals.PixelLiteral;
 import nl.han.ica.icss.ast.literals.ScalarLiteral;
@@ -28,9 +29,35 @@ public class Evaluator implements Transform {
                 saveVariableType((VariableAssignment) node);
             }
             if(node instanceof Stylerule){
+                node = evaluateIfClause((Stylerule) node);
+                assert node != null;
                 evaluateBody(((Stylerule) node).body);
             }
         }
+    }
+
+    private Stylerule evaluateIfClause(Stylerule stylerule) {
+        for (ASTNode node:
+             stylerule.body) {
+            if (node instanceof IfClause){
+                if(((IfClause) node).conditionalExpression instanceof VariableReference){
+                    BoolLiteral clause = (BoolLiteral) getVariable(((VariableReference) ((IfClause) node).conditionalExpression).name);
+                    assert clause != null;
+                    if (clause.value){
+                        stylerule.body.remove(node);
+                        return new Stylerule(stylerule.selectors.get(0), ((IfClause) node).body);
+                    }
+                    else return new Stylerule(stylerule.selectors.get(0), ((IfClause) node).elseClause.body);
+                }
+                else if(((IfClause) node).conditionalExpression instanceof BoolLiteral){
+                    if(((BoolLiteral) ((IfClause) node).conditionalExpression).value){
+                        return new Stylerule(stylerule.selectors.get(0), ((IfClause) node).body);
+                    }
+                    else return new Stylerule(stylerule.selectors.get(0), ((IfClause) node).elseClause.body);
+                }
+            }
+        }
+        return stylerule;
     }
 
     private void saveVariableType(VariableAssignment node) {
@@ -49,8 +76,8 @@ public class Evaluator implements Transform {
         variableValues.get(index).put(node.name.name, (Literal) node.expression);
     }
 
-    private void evaluateBody(ArrayList<ASTNode> body) {
-        for (ASTNode node : body){
+    private void evaluateBody(ArrayList<ASTNode> nodes) {
+        for (ASTNode node : nodes){
             if(node instanceof Declaration){
                 if(((Declaration) node).expression instanceof VariableReference){
                     ((Declaration) node).expression = getVariable(((VariableReference) ((Declaration) node).expression).name);
@@ -59,6 +86,10 @@ public class Evaluator implements Transform {
                     ((Declaration) node).expression = calculateOperation(((Declaration) node).expression);
                 }
             }
+            else if(node instanceof VariableAssignment){
+                System.out.println("new variable");
+            }
+
         }
     }
 
