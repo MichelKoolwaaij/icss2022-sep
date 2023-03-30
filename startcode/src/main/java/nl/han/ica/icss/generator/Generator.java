@@ -13,9 +13,9 @@ public class Generator {
         ast.root.body.forEach(astNode -> {
             if (astNode instanceof Stylerule) {
                 ((Stylerule) astNode).selectors.forEach(selector -> output.append(selector.toString()));
-                output.append("  {\n");
+                output.append(" {\n");
                 ((Stylerule) astNode).body.forEach(declaration -> {
-                    output.append("\t");
+                    output.append("  ");
                     addDeclaration(output, (Declaration) declaration);
                     output.append(";\n");
                 });
