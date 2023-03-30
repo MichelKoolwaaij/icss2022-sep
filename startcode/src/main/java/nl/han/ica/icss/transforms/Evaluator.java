@@ -13,6 +13,7 @@ import nl.han.ica.icss.ast.operations.SubtractOperation;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.stream.Collectors;
 
 public class Evaluator implements Transform {
 
@@ -24,48 +25,67 @@ public class Evaluator implements Transform {
 
     @Override
     public void apply(AST ast) {
+        globalVariables(ast);
         for (ASTNode node : ast.root.body){
-            if(node instanceof VariableAssignment){
-                saveVariableType((VariableAssignment) node);
-            }
             if(node instanceof Stylerule){
-                node = evaluateIfClause((Stylerule) node);
-                assert node != null;
+                node = evaluateIfClause((Stylerule) node, 0);
                 evaluateBody(((Stylerule) node).body);
             }
         }
+        variableValues.removeFirst();
     }
 
-    private Stylerule evaluateIfClause(Stylerule stylerule) {
-        for (ASTNode node:
-             stylerule.body) {
-            if (node instanceof IfClause){
-                if(((IfClause) node).conditionalExpression instanceof VariableReference){
-                    BoolLiteral clause = (BoolLiteral) getVariable(((VariableReference) ((IfClause) node).conditionalExpression).name);
-                    assert clause != null;
-                    if (clause.value){
-                        stylerule.body.remove(node);
-                        return new Stylerule(stylerule.selectors.get(0), ((IfClause) node).body);
-                    }
-                    else return new Stylerule(stylerule.selectors.get(0), ((IfClause) node).elseClause.body);
-                }
-                else if(((IfClause) node).conditionalExpression instanceof BoolLiteral){
-                    if(((BoolLiteral) ((IfClause) node).conditionalExpression).value){
-                        return new Stylerule(stylerule.selectors.get(0), ((IfClause) node).body);
-                    }
-                    else return new Stylerule(stylerule.selectors.get(0), ((IfClause) node).elseClause.body);
-                }
-            }
+    private void globalVariables(AST ast) {
+        variableValues.addFirst(new HashMap<>());
+        ast.root.body.stream().filter(node -> node instanceof VariableAssignment).forEach(node -> saveVariableType((VariableAssignment) node));
+        ast.root.body.removeAll(ast.root.body.stream().filter(node -> node instanceof VariableAssignment).collect(Collectors.toList()));
+    }
+
+    private Stylerule evaluateIfClause(Stylerule stylerule, int index) {
+        if (stylerule.body.size() <= index){
+            return stylerule;
         }
+        if(stylerule.body.get(index) instanceof Declaration){
+            index++;
+            return evaluateIfClause(stylerule,index);
+        }
+        if (stylerule.body.get(index) instanceof VariableAssignment){
+            variableValues.addFirst(new HashMap<>());
+            saveVariableType((VariableAssignment) stylerule.body.get(index));
+            //variableValues.getFirst().put(((VariableAssignment) stylerule.body.get(index)).name,((VariableAssignment) stylerule.body.get(index)).expression);
+        }
+        if (stylerule.body.get(index) instanceof IfClause){
+            IfClause ifClause = (IfClause) stylerule.body.get(index);
+            if(ifClause.conditionalExpression instanceof VariableReference){
+                BoolLiteral clause = (BoolLiteral) getVariable(((VariableReference) ifClause.conditionalExpression).name);
+                assert clause != null;
+                rebuildIfClause(stylerule, index, ifClause, clause);
+            }
+            if(ifClause.conditionalExpression instanceof BoolLiteral){
+                rebuildIfClause(stylerule, index, ifClause, ((BoolLiteral) ifClause.conditionalExpression));
+            }
+            index++;
+            return evaluateIfClause(stylerule,index);
+        }
+        variableValues.removeFirst();
         return stylerule;
+    }
+
+    private void rebuildIfClause(Stylerule stylerule, int index, IfClause ifClause, BoolLiteral clause) {
+        if(clause.value){
+            stylerule.body.remove(ifClause);
+            stylerule.body.addAll(index, ifClause.body);
+        }
+        if(!clause.value && ifClause.elseClause!=null){
+            stylerule.body.remove(ifClause);
+            stylerule.body.addAll(index, ifClause.elseClause.body);
+        }
+        else stylerule.body.remove(ifClause);
     }
 
     private void saveVariableType(VariableAssignment node) {
         if(node.expression instanceof Operation){
             node.expression = calculateOperation(node.expression);
-        }
-        if(variableValues.getSize()==0){
-            variableValues.addFirst(new HashMap<>());
         }
         int index = 0;
         for(int i = 0; i<variableValues.getSize(); i++){
@@ -77,6 +97,7 @@ public class Evaluator implements Transform {
     }
 
     private void evaluateBody(ArrayList<ASTNode> nodes) {
+        variableValues.addFirst(new HashMap<>());
         for (ASTNode node : nodes){
             if(node instanceof Declaration){
                 if(((Declaration) node).expression instanceof VariableReference){
@@ -87,10 +108,10 @@ public class Evaluator implements Transform {
                 }
             }
             else if(node instanceof VariableAssignment){
-                System.out.println("new variable");
+                saveVariableType((VariableAssignment) node);
             }
-
         }
+        variableValues.removeFirst();
     }
 
     private Expression calculateOperation(Expression expression) {

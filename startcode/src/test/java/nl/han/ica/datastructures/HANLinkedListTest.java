@@ -65,10 +65,9 @@ class HANLinkedListTest {
         first.put("UseLinkColor", ExpressionType.BOOL);
         test.addFirst(first);
         //assert
-        System.out.println(test.getSize());
         test.iterator().next();
-        System.out.println(test.getSize());
+        assertTrue(test.iterator().hasNext());
+        test.removeFirst();
         assertFalse(test.iterator().hasNext());
-        System.out.println(test.getSize());
     }
 }

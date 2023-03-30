@@ -19,7 +19,8 @@ class ParserTest {
 		ClassLoader classLoader = this.getClass().getClassLoader();
 
     	InputStream inputStream = classLoader.getResourceAsStream(resource);
-        CharStream charStream = CharStreams.fromStream(inputStream);
+		assert inputStream != null;
+		CharStream charStream = CharStreams.fromStream(inputStream);
         ICSSLexer lexer = new ICSSLexer(charStream);
 
 	    CommonTokenStream tokens = new CommonTokenStream(lexer);
@@ -55,7 +56,6 @@ class ParserTest {
 
 	@Test
 	void testParseLevel0() throws IOException {
-
 		AST sut = parseTestFile("level0.icss");
 		AST exp = Fixtures.uncheckedLevel0();
 		assertEquals(exp,sut);
