@@ -19,7 +19,7 @@ Je bouwt in deze opdracht verder aan een interactieve Java-applicatie: de ICSSTo
 Met betrekking tot het inleveren gelden de volgende eisen:
 
 - De opdracht dient in iSAS te worden ingeleverd. Kijk voor de exacte datum en tijd in iSAS.
-- Alle onderdelen dienen gebundeld in één ZIP-bestand te worden aangeleverd.
+- Alle onderdelen dienen gebundeld in één ZIP-bestand te worden aangeleverd. LET OP: maak een zip van de folder ‘icss2022-sep’ (en niet van alleen de folder ‘startcode’), zodat de hidden folder ‘.git/’ ook mee wordt gezipt.
 - Bijlagen mogen alleen in PDF worden aangeleverd.
 - Er moet een bijlage aanwezig zijn waarin je aangeeft (1) aan welke eisen het product voldoet, en (2) wat de met de docent overeengekomen taaluitbreiding is en hoeveel punten deze maximaal waard is.
 
